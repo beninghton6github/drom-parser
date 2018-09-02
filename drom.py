@@ -3,17 +3,23 @@
 from urllib.request import urlopen
 import requests
 from bs4 import BeautifulSoup
-from multiprocessing import Pool
+import multiprocessing as mp
+import os
+import time
+from datetime import datetime
 
 
 # Возвращает страницу и кол-во хозяев, если их меньше 2 и тачка не в розыске, и без штрафов.
 def parse_hosts_count(page_url):
+    # Get from the queue
+
+    # And process it
     page = urlopen(page_url)
     soup = BeautifulSoup(page, 'html.parser')
 
     # Парисм по тегу div'a
     hosts_field = soup.find_all(class_="b-media-cont b-media-cont_no-clear b-media-cont_bg_gray b-media-cont_modify_md b-random-group b-random-group_margin_b-size-xss")
-    if hosts_field == []:
+    if len(hosts_field) == 0:
         return
 
     # Если тег есть, у нас список из одного элемента. Если лист пустой - просто pass с IndexError.
@@ -36,7 +42,7 @@ def get_url_list():
 
     while True:
         # Самый простой get query, пока не раскидал параметры запроса по переменным. Ну не суть.
-        # По страницам бегаем просто подставляя номер новой, пока что то отдается. 
+        # По страницам бегаем просто подставляя номер новой, пока что то отдается.
         # Т.е. может открыться хоть 100500 страница, ошибки не будет, просто она будет без нужного контента.
         query = "https://kemerovo.drom.ru/auto/page{}/?distance=100&minprice=220000&maxprice=320000&minyear=2005&transmission=2&privod=1&ph=1&inomarka=1&order=price&order_d=desc&w=2&unsold=1&go_search=2".format(page_number)
         response = requests.get(query)
@@ -57,13 +63,17 @@ def get_url_list():
 # Просто бегаем по урлам и выводим их.
 def main():
     url_list = get_url_list()
-    print("Найдено {} объявлений".format(len(url_list)))
 
-    with Pool(5) as p:
+    num_workers = mp.cpu_count()
+    with mp.Pool(num_workers) as p:
         p.map(parse_hosts_count, url_list)
+
 
 
 
 
 if __name__ == '__main__':
     main()
+
+
+# https://www.ellicium.com/python-multiprocessing-pool-process/
