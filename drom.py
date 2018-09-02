@@ -47,6 +47,7 @@ def get_url_list(queue):
 
     page_number = 1
     #url_list = []
+    url_count = 0
 
     while True:
         # Самый простой get query, пока не раскидал параметры запроса по переменным. Ну не суть.
@@ -65,11 +66,12 @@ def get_url_list(queue):
             #url_list.append(a['href'])
             #print("push {} to the queue".format(a['href']))
             queue.put(a['href'])
+            url_count += 1
 
         page_number += 1
 
 
-    #return url_list
+    return url_count
 
 
 def reader(queue):
@@ -97,21 +99,21 @@ def main():
     pqueue = mp.Queue()
 
     processes = [mp.Process(target=reader, args=(pqueue,)) for i in range(mp.cpu_count() + 2)]
-    
+
     for proc in processes:
         proc.daemon = True
         proc.start()
 
-    get_url_list(pqueue)
-    
+    url_count = get_url_list(pqueue)
+
     for i in range(len(processes)):
         pqueue.put(None)
 
     for proc in processes:
         proc.join()
 
+    print("Всего по данному фильтру было найдено найдено {} объявлений".format(url_count))
     print(datetime.now() - t)
-
 
 
 
