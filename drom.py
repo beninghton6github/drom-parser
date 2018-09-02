@@ -7,15 +7,23 @@ import multiprocessing as mp
 import os
 import time
 from datetime import datetime
+import urllib3
+urllib3.disable_warnings()
+http = urllib3.PoolManager()
+
 
 
 # Возвращает страницу и кол-во хозяев, если их меньше 2 и тачка не в розыске, и без штрафов.
 def parse_hosts_count(page_url):
     # Get from the queue
-
     # And process it
+    # TODO increase parsing speed
     page = urlopen(page_url)
+    #page = requests.get(page_url)
+    #print(page)
     soup = BeautifulSoup(page, 'html.parser')
+    #soup = BeautifulSoup(page, 'lxml')
+
 
     # Парисм по тегу div'a
     hosts_field = soup.find_all(class_="b-media-cont b-media-cont_no-clear b-media-cont_bg_gray b-media-cont_modify_md b-random-group b-random-group_margin_b-size-xss")
@@ -35,10 +43,10 @@ def parse_hosts_count(page_url):
 
 
 # Получаем список урлов со всех страниц по запросу с дрома.
-def get_url_list():
+def get_url_list(queue):
 
     page_number = 1
-    url_list = []
+    #url_list = []
 
     while True:
         # Самый простой get query, пока не раскидал параметры запроса по переменным. Ну не суть.
@@ -54,19 +62,55 @@ def get_url_list():
             break
 
         for a in findings[0].find_all('a', href=True):
-            url_list.append(a['href'])
+            #url_list.append(a['href'])
+            #print("push {} to the queue".format(a['href']))
+            queue.put(a['href'])
 
         page_number += 1
 
-    return url_list
+
+    #return url_list
+
+
+def reader(queue):
+    while True:
+        #print("get from the queue")
+        page_url = queue.get()         # Read from the queue and do nothing
+
+        if page_url is None:
+            #print("TASKS ARE DONE,EXITING")
+            break
+        else:
+            parse_hosts_count(page_url)
+
 
 # Просто бегаем по урлам и выводим их.
 def main():
-    url_list = get_url_list()
+    #get_url_list()
 
     num_workers = mp.cpu_count()
-    with mp.Pool(num_workers) as p:
-        p.map(parse_hosts_count, url_list)
+    print(num_workers)
+
+    t = datetime.now()
+    print(t)
+
+    pqueue = mp.Queue()
+
+    processes = [mp.Process(target=reader, args=(pqueue,)) for i in range(mp.cpu_count() + 2)]
+    
+    for proc in processes:
+        proc.daemon = True
+        proc.start()
+
+    get_url_list(pqueue)
+    
+    for i in range(len(processes)):
+        pqueue.put(None)
+
+    for proc in processes:
+        proc.join()
+
+    print(datetime.now() - t)
 
 
 
